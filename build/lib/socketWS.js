@@ -16,7 +16,7 @@ const socket_classes_1 = require("@iobroker/socket-classes");
  * overridable there and implemented here. By convention those framework hooks are prefixed with `__`
  * and are called by the base class — they are not meant to be called by application code.
  *
- * Only `secure`, `auth` and `crossDomain` of the adapter settings are relevant for this subclass.
+ * Session and access-token cookie names from the adapter settings are passed to the shared auth middleware.
  */
 class SocketWS extends socket_classes_1.SocketCommon {
     /**
@@ -94,15 +94,21 @@ class SocketWS extends socket_classes_1.SocketCommon {
             authOptions.store = this.store;
         }
         if (!authOptions.oauth2Only) {
-            this.server?.use((0, socket_classes_1.passportSocket)({
+            const cookieSettings = this.settings;
+            const passportOptions = {
                 passport: passport_1.default,
                 cookieParser: cookie_parser_1.default,
                 checkUser: authOptions.checkUser,
                 secret: authOptions.secret, // the session_secret to parse the cookie
                 store: authOptions.store, // we NEED to use a sessionstore. no memorystore, please
+                sessionCookieName: cookieSettings.sessionCookieName,
+                legacySessionCookieNames: cookieSettings.legacySessionCookieNames,
+                accessTokenCookieName: cookieSettings.accessTokenCookieName,
+                legacyAccessTokenCookieNames: cookieSettings.legacyAccessTokenCookieNames,
                 success: this.#onAuthorizeSuccess, // *optional* callback on success - read more below
                 fail: this.#onAuthorizeFail, // *optional* callback on fail/error - read more below
-            }));
+            };
+            this.server?.use((0, socket_classes_1.passportSocket)(passportOptions));
         }
     }
     /**

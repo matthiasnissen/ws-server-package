@@ -4,11 +4,19 @@ import {
     SocketCommon,
     passportSocket,
     type PassportHttpRequest,
+    type SocketSettings,
     type Store,
     type SocketSubscribeTypes,
 } from '@iobroker/socket-classes';
 import type { Socket as WebSocketClient } from '@iobroker/ws-server';
 import type { WsConfig } from '../types';
+
+interface CookieNameSettings {
+    sessionCookieName?: string;
+    legacySessionCookieNames?: string[];
+    accessTokenCookieName?: string;
+    legacyAccessTokenCookieNames?: string[];
+}
 
 /**
  * WebSocket-specific implementation of the shared `SocketCommon` protocol engine.
@@ -19,7 +27,7 @@ import type { WsConfig } from '../types';
  * overridable there and implemented here. By convention those framework hooks are prefixed with `__`
  * and are called by the base class — they are not meant to be called by application code.
  *
- * Only `secure`, `auth` and `crossDomain` of the adapter settings are relevant for this subclass.
+ * Session and access-token cookie names from the adapter settings are passed to the shared auth middleware.
  */
 export class SocketWS extends SocketCommon {
     /**
@@ -125,17 +133,22 @@ export class SocketWS extends SocketCommon {
         }
 
         if (!authOptions.oauth2Only) {
-            this.server?.use(
-                passportSocket({
-                    passport,
-                    cookieParser,
-                    checkUser: authOptions.checkUser,
-                    secret: authOptions.secret, // the session_secret to parse the cookie
-                    store: authOptions.store, // we NEED to use a sessionstore. no memorystore, please
-                    success: this.#onAuthorizeSuccess, // *optional* callback on success - read more below
-                    fail: this.#onAuthorizeFail, // *optional* callback on fail/error - read more below
-                }),
-            );
+            const cookieSettings = this.settings as SocketSettings & CookieNameSettings;
+            const passportOptions = {
+                passport,
+                cookieParser,
+                checkUser: authOptions.checkUser,
+                secret: authOptions.secret, // the session_secret to parse the cookie
+                store: authOptions.store, // we NEED to use a sessionstore. no memorystore, please
+                sessionCookieName: cookieSettings.sessionCookieName,
+                legacySessionCookieNames: cookieSettings.legacySessionCookieNames,
+                accessTokenCookieName: cookieSettings.accessTokenCookieName,
+                legacyAccessTokenCookieNames: cookieSettings.legacyAccessTokenCookieNames,
+                success: this.#onAuthorizeSuccess, // *optional* callback on success - read more below
+                fail: this.#onAuthorizeFail, // *optional* callback on fail/error - read more below
+            } as Parameters<typeof passportSocket>[0] & CookieNameSettings;
+
+            this.server?.use(passportSocket(passportOptions));
         }
     }
 

@@ -190,6 +190,48 @@ describe('SocketWS', () => {
             );
         });
 
+        it('authenticates with the configured session cookie name', async () => {
+            const ws = new SocketWS({ auth: true, sessionCookieName: 'web.0.sid' }, createMockAdapter({ auth: true }));
+            ws.server = createFakeSocketServer();
+            const store = createMemoryStore();
+            store.sessions['session-1'] = createSession('admin');
+            ws.__initAuthentication({ store, secret: SECRET });
+
+            const request = {
+                url: '/?sid=1',
+                headers: { cookie: signSessionCookie('session-1', SECRET).replace('connect.sid=', 'web.0.sid=') },
+                socket: { remoteAddress: '127.0.0.1', emit: () => {} },
+                connection: { remoteAddress: '127.0.0.1' },
+            };
+            const accepted = await new Promise(resolve => ws.server.middlewares[0](request, resolve));
+
+            strictEqual(accepted, false);
+            strictEqual(request.sessionID, 'session-1');
+        });
+
+        it('authenticates with the configured access-token cookie name', async () => {
+            const ws = new SocketWS(
+                { auth: true, accessTokenCookieName: 'web.0.access_token' },
+                createMockAdapter({ auth: true }),
+            );
+            ws.server = createFakeSocketServer();
+            const store = createMemoryStore();
+            store.sessions['a:token-1'] = { user: 'admin' };
+            ws.__initAuthentication({ store, secret: SECRET });
+
+            const request = {
+                url: '/?sid=1',
+                headers: { cookie: 'web.0.access_token=token-1' },
+                socket: { remoteAddress: '127.0.0.1', emit: () => {} },
+                connection: { remoteAddress: '127.0.0.1' },
+            };
+            const accepted = await new Promise(resolve => ws.server.middlewares[0](request, resolve));
+
+            strictEqual(accepted, false);
+            deepStrictEqual(request.user, { user: 'admin', logged_in: true });
+        });
+
+
         it('asks a client without a session to re-authenticate', async () => {
             const adapter = createMockAdapter({ auth: true });
             const ws = new SocketWS({ auth: true }, adapter);

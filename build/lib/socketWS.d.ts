@@ -9,7 +9,7 @@ import type { Socket as WebSocketClient } from '@iobroker/ws-server';
  * overridable there and implemented here. By convention those framework hooks are prefixed with `__`
  * and are called by the base class — they are not meant to be called by application code.
  *
- * Only `secure`, `auth` and `crossDomain` of the adapter settings are relevant for this subclass.
+ * Session and access-token cookie names from the adapter settings are passed to the shared auth middleware.
  */
 export declare class SocketWS extends SocketCommon {
     #private;
